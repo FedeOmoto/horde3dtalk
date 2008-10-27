@@ -26,6 +26,10 @@ Horde3DConstants at: 'Light' put: 5.
 Horde3DConstants at: 'Camera' put: 6.
 Horde3DConstants at: 'Emitter' put: 7.
 
+"Scene node parameters constants"
+Horde3DConstants at: 'Name' put: 1.
+Horde3DConstants at: 'AttachmentString' put: 2.
+
 "Light node parameters constants"
 Horde3DConstants at: 'MaterialRes' put: 500.
 Horde3DConstants at: 'Radius' put: 501.
