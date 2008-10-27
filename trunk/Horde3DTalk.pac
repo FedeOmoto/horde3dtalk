@@ -2384,6 +2384,11 @@ Horde3DMaterialResource comment: ''!
 !Horde3DMaterialResource categoriesForClass!Kernel-Objects! !
 !Horde3DMaterialResource methodsFor!
 
+onShowOverlay
+	"Private - Inform the receiver's resourceManager that we're showing overlays."
+
+	resourceManager trigger: #showOverlay!
+
 setUniform: aString values: aFLOATArray 
 	"Set the receiver's shader uniform named aString to the four float values contained in aFLOATArray."
 
@@ -2430,7 +2435,8 @@ showOverlayAt: aPositionRectange withTextureRectangle: aTextureRectangle usingLa
 		vul: 1 - aTextureRectangle top
 		layer: anInteger - 1
 		materialRes: self value.
-	resourceManager trigger: #showOverlay! !
+	self onShowOverlay! !
+!Horde3DMaterialResource categoriesFor: #onShowOverlay!event handling!private! !
 !Horde3DMaterialResource categoriesFor: #setUniform:values:!public! !
 !Horde3DMaterialResource categoriesFor: #showOverlayAt:usingLayer:!public! !
 !Horde3DMaterialResource categoriesFor: #showOverlayAt:withTextureRectangle:usingLayer:!public! !
@@ -2538,14 +2544,16 @@ show: aString at: aPoint withScale: aFloat usingLayer: anInteger
 		y: 1 - aPoint y
 		size: aFloat
 		layer: anInteger - 1
-		fontMaterialRes: self value!
+		fontMaterialRes: self value.
+	self onShowOverlay!
 
 showFrameStats: currentFPS 
 	"Show statistics for the current frame in the upper left corner of the screen.
 	You've to tell this method the frames per second with which the application is currently running
 	as specified by the currentFPS parameter."
 
-	horde3DUtilsLibrary showFrameStats: self value curFPS: currentFPS! !
+	horde3DUtilsLibrary showFrameStats: self value curFPS: currentFPS.
+	self onShowOverlay! !
 !Horde3DFontMaterialResource categoriesFor: #initialize!initializing!private! !
 !Horde3DFontMaterialResource categoriesFor: #show:at:usingLayer:!public! !
 !Horde3DFontMaterialResource categoriesFor: #show:at:withScale:usingLayer:!public! !
