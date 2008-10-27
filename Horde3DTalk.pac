@@ -63,7 +63,7 @@ package!
 "Class Definitions"!
 
 Object subclass: #Horde3DEngine
-	instanceVariableNames: 'horde3DLibrary options scene resourceManager clearOverlays camera'
+	instanceVariableNames: 'horde3DLibrary options scene resourceManager hasOverlays cameras'
 	classVariableNames: ''
 	poolDictionaries: ''
 	classInstanceVariableNames: ''!
@@ -252,6 +252,7 @@ value
 Smalltalk at: #Horde3DConstants put: (PoolConstantsDictionary named: #Horde3DConstants)!
 Horde3DConstants at: 'Animation' put: 16r3!
 Horde3DConstants at: 'AnisotropyFactor' put: 16r3!
+Horde3DConstants at: 'AttachmentString' put: 16r2!
 Horde3DConstants at: 'BottomPlane' put: 16r25D!
 Horde3DConstants at: 'Camera' put: 16r6!
 Horde3DConstants at: 'Code' put: 16r5!
@@ -276,6 +277,7 @@ Horde3DConstants at: 'MaterialRes' put: 16r1F4!
 Horde3DConstants at: 'MaxLogLevel' put: 16r1!
 Horde3DConstants at: 'Mesh' put: 16r3!
 Horde3DConstants at: 'Model' put: 16r2!
+Horde3DConstants at: 'Name' put: 16r1!
 Horde3DConstants at: 'NearPlane' put: 16r25F!
 Horde3DConstants at: 'OcclusionCulling' put: 16r262!
 Horde3DConstants at: 'Orthographic' put: 16r261!
@@ -309,20 +311,38 @@ Horde3DEngine comment: ''!
 !Horde3DEngine categoriesForClass!Kernel-Objects! !
 !Horde3DEngine methodsFor!
 
-camera
-	"Answer the receiver's camera instance variable."
+addCamera: aHorde3DCameraNode 
+	"Private - Add aHorde3DCameraNode to the receiver's cameras instance variable."
 
-	^camera!
+	cameras at: aHorde3DCameraNode name put: aHorde3DCameraNode!
+
+cameras
+	"Answer the receiver's cameras instance variable."
+
+	^cameras!
 
 clearOverlays
-	"Answer the receiver's clearOverlays instance variable."
+	"Remove all overlays that were added to the reveiver."
 
-	^clearOverlays!
+	hasOverlays ifFalse: [^self].
+	horde3DLibrary clearOverlays.
+	hasOverlays := false!
 
-clearOverlays: aBoolean 
-	"Private - Set the receiver's clearOverlays instance variable to aBoolean."
+currentCamera
+	"Answer the camera currently used by the #render method."
 
-	clearOverlays := aBoolean!
+	^cameras at: #currentCamera ifAbsent: []!
+
+currentCamera: aHorde3DCameraNode 
+	"Set the camera to be used by the #render method."
+
+	self currentCamera ifNotNil: [:currentCamera | self addCamera: currentCamera].
+	cameras at: #currentCamera put: aHorde3DCameraNode!
+
+hasOverlays: aBoolean 
+	"Private - Set the receiver's hasOverlays instance variable to aBoolean."
+
+	hasOverlays := aBoolean!
 
 initialize
 	"Private - Initialize the receiver."
@@ -331,33 +351,42 @@ initialize
 	options := Horde3DOptions new.
 	scene := Horde3DScene new.
 	resourceManager := Horde3DResourceManager new.
-	scene 
-		when: #cameraCreated:
-		send: #onCameraCreated:
-		to: self.
-	resourceManager 
-		when: #showOverlay
-		send: #clearOverlays:
-		to: self
-		with: true!
+	cameras := LookupTable new.
+	hasOverlays := false.
+	self registerEventHandlers!
 
 onCameraCreated: aHorde3DCameraNode 
 	"Private - Handler for the camera created event."
 
-	camera := aHorde3DCameraNode!
+	self currentCamera ifNil: [^self currentCamera: aHorde3DCameraNode].
+	self addCamera: aHorde3DCameraNode!
 
 options
 	"Answer the receiver's options instance variable."
 
 	^options!
 
+registerEventHandlers
+	"Private - Register with scene and resource manager events."
+
+	scene 
+		when: #cameraCreated:
+		send: #onCameraCreated:
+		to: self.
+	resourceManager 
+		when: #showOverlay
+		send: #hasOverlays:
+		to: self
+		with: true!
+
 render
-	"Render the receiver's scene.
+	"Render the receiver's scene from the currentCamera perspective."
 
-	TODO: find an elegant way to handle more than one camera."
-
-	(camera isNil or: [(horde3DLibrary render: camera value) not]) 
-		ifTrue: [Error signal: 'Error trying to render the scene']!
+	| currentCamera |
+	currentCamera := self currentCamera.
+	(currentCamera isNil or: [(horde3DLibrary render: currentCamera value) not]) 
+		ifTrue: [Horde3DError signal: 'Error trying to render the scene'].
+	self clearOverlays!
 
 resourceManager
 	"Answer the receiver's resourceManager instance variable."
@@ -368,12 +397,16 @@ scene
 	"Answer the receiver's scene instance variable."
 
 	^scene! !
-!Horde3DEngine categoriesFor: #camera!public! !
-!Horde3DEngine categoriesFor: #clearOverlays!accessing!public! !
-!Horde3DEngine categoriesFor: #clearOverlays:!accessing!private! !
+!Horde3DEngine categoriesFor: #addCamera:!accessing!private! !
+!Horde3DEngine categoriesFor: #cameras!accessing!public! !
+!Horde3DEngine categoriesFor: #clearOverlays!public! !
+!Horde3DEngine categoriesFor: #currentCamera!accessing!public! !
+!Horde3DEngine categoriesFor: #currentCamera:!accessing!public! !
+!Horde3DEngine categoriesFor: #hasOverlays:!accessing!private! !
 !Horde3DEngine categoriesFor: #initialize!initializing!private! !
 !Horde3DEngine categoriesFor: #onCameraCreated:!private! !
 !Horde3DEngine categoriesFor: #options!accessing!public! !
+!Horde3DEngine categoriesFor: #registerEventHandlers!event handlers!private! !
 !Horde3DEngine categoriesFor: #render!public! !
 !Horde3DEngine categoriesFor: #resourceManager!accessing!public! !
 !Horde3DEngine categoriesFor: #scene!accessing!public! !
@@ -1355,6 +1388,17 @@ getNodeParami: node param: param
 	<cdecl: sdword getNodeParami sdword sdword>
 	^self invalidCall!
 
+getNodeParamstr: node param: param 
+	"Gets a property of a scene node.
+
+		const char *getNodeParamstr(
+			NodeHandle node,
+			int param
+		);"
+
+	<cdecl: char* getNodeParamstr sdword sdword>
+	^self invalidCall!
+
 getNodeType: node 
 	"Returns the type of a scene node.
 
@@ -1476,6 +1520,18 @@ setNodeParami: node param: param value: value
 	<cdecl: bool setNodeParami sdword sdword sdword>
 	^self invalidCall!
 
+setNodeParamstr: node param: param value: value 
+	"Sets a property of a scene node.
+
+		bool setNodeParamstr(
+			NodeHandle node,
+			int param,
+			const char *value
+		);"
+
+	<cdecl: bool setNodeParamstr sdword sdword char*>
+	^self invalidCall!
+
 setNodeTransform: node tx: tx ty: ty tz: tz rx: rx ry: ry rz: rz sx: sx sy: sy sz: sz 
 	"Sets the relative transformation of a node.
 
@@ -1571,6 +1627,7 @@ showOverlay: xll yll: yll ull: ull vll: vll xlr: xlr ylr: ylr ulr: ulr vlr: vlr 
 !Horde3DLibrary categoriesFor: #getNodeFindResult:!public! !
 !Horde3DLibrary categoriesFor: #getNodeParamf:param:!public! !
 !Horde3DLibrary categoriesFor: #getNodeParami:param:!public! !
+!Horde3DLibrary categoriesFor: #getNodeParamstr:param:!public! !
 !Horde3DLibrary categoriesFor: #getNodeType:!public! !
 !Horde3DLibrary categoriesFor: #getOption:!public! !
 !Horde3DLibrary categoriesFor: #getResourceType:!public! !
@@ -1582,6 +1639,7 @@ showOverlay: xll yll: yll ull: ull vll: vll xlr: xlr ylr: ylr ulr: ulr vlr: vlr 
 !Horde3DLibrary categoriesFor: #setModelAnimParams:stage:time:weight:!public! !
 !Horde3DLibrary categoriesFor: #setNodeParamf:param:value:!public! !
 !Horde3DLibrary categoriesFor: #setNodeParami:param:value:!public! !
+!Horde3DLibrary categoriesFor: #setNodeParamstr:param:value:!public! !
 !Horde3DLibrary categoriesFor: #setNodeTransform:tx:ty:tz:rx:ry:rz:sx:sy:sz:!public! !
 !Horde3DLibrary categoriesFor: #setOption:value:!public! !
 !Horde3DLibrary categoriesFor: #setupCameraView:fov:aspect:nearDist:farDist:!public! !
@@ -1715,6 +1773,19 @@ initialize
 
 	horde3DLibrary := Horde3DLibrary default!
 
+name
+	"Answer the receiver's name."
+
+	^horde3DLibrary getNodeParamstr: self value param: Name!
+
+name: aString 
+	"Set the receiver's name to aString."
+
+	^horde3DLibrary 
+		setNodeParamstr: self value
+		param: Name
+		value: aString!
+
 scene
 	"Answer the Horde3DScene object this node belongs to."
 
@@ -1745,6 +1816,8 @@ translation: aTranslationPoint3D rotation: aRotationPoint3D scale: aScalePoint3D
 		sy: aScalePoint3D y
 		sz: aScalePoint3D z! !
 !Horde3DNode categoriesFor: #initialize!initializing!private! !
+!Horde3DNode categoriesFor: #name!public! !
+!Horde3DNode categoriesFor: #name:!public! !
 !Horde3DNode categoriesFor: #scene!accessing!public! !
 !Horde3DNode categoriesFor: #scene:!accessing!private! !
 !Horde3DNode categoriesFor: #translation:rotation:scale:!public! !
@@ -2022,6 +2095,17 @@ topPlaneCoordinate: aFloat
 !Horde3DCameraNode categoriesFor: #topPlaneCoordinate!public! !
 !Horde3DCameraNode categoriesFor: #topPlaneCoordinate:!public! !
 
+!Horde3DCameraNode class methodsFor!
+
+publishedEventsOfInstances
+	"Answer a Set of Symbols that describe the published events triggered by instances of the
+	receiver."
+
+	^(super publishedEventsOfInstances)
+		add: #cameraCreated:;
+		yourself! !
+!Horde3DCameraNode class categoriesFor: #publishedEventsOfInstances!development!events!public! !
+
 Horde3DEmitterNode guid: (GUID fromString: '{E610B185-0A3E-4C49-814B-60D69A01AEAA}')!
 Horde3DEmitterNode comment: ''!
 !Horde3DEmitterNode categoriesForClass!External-Data-Structured! !
@@ -2238,7 +2322,7 @@ setupAnimationStage: anInteger withResource: aHorde3DAnimationResource at: nodeN
 setupAnimationStage: anInteger withResource: aHorde3DAnimationResource at: nodeName isAdditive: aBoolean 
 	"Configure an animation stage for the receiver.
 
-	TODO: a difficult task, but try to find a better selector name..."
+	TODO: try to find a better selector name..."
 
 	^horde3DLibrary 
 		setupModelAnimStage: self value
@@ -2300,16 +2384,16 @@ Horde3DMaterialResource comment: ''!
 !Horde3DMaterialResource categoriesForClass!Kernel-Objects! !
 !Horde3DMaterialResource methodsFor!
 
-setUniform: aString values: aFloatArray 
-	"Set the receiver's shader uniform named aString to the four float values contained in aFloatArray."
+setUniform: aString values: aFLOATArray 
+	"Set the receiver's shader uniform named aString to the four float values contained in aFLOATArray."
 
 	^horde3DLibrary 
 		setMaterialUniform: self value
 		name: aString
-		a: (aFloatArray at: 1)
-		b: (aFloatArray at: 2)
-		c: (aFloatArray at: 3)
-		d: (aFloatArray at: 4)!
+		a: (aFLOATArray at: 1)
+		b: (aFLOATArray at: 2)
+		c: (aFLOATArray at: 3)
+		d: (aFLOATArray at: 4)!
 
 showOverlayAt: aPositionRectange usingLayer: anInteger 
 	"Show an overlay with the receiver's material on the screen, with dimensions and position as
@@ -2353,10 +2437,19 @@ showOverlayAt: aPositionRectange withTextureRectangle: aTextureRectangle usingLa
 
 !Horde3DMaterialResource class methodsFor!
 
+publishedEventsOfInstances
+	"Answer a Set of Symbols that describe the published events triggered by instances of the
+	receiver."
+
+	^(super publishedEventsOfInstances)
+		add: #showOverlay;
+		yourself!
+
 resourceType
 	"Private - Answer the appropriate resource type for the class."
 
 	^Material! !
+!Horde3DMaterialResource class categoriesFor: #publishedEventsOfInstances!development!events!public! !
 !Horde3DMaterialResource class categoriesFor: #resourceType!private! !
 
 Horde3DPipelineResource guid: (GUID fromString: '{09D2F1D8-33B7-4E36-B7B1-D43691A9C9BD}')!
