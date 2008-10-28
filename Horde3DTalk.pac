@@ -322,7 +322,7 @@ cameras
 	^cameras!
 
 clearOverlays
-	"Remove all overlays that were added to the reveiver."
+	"Private - Remove all overlays that were added to the reveiver."
 
 	hasOverlays ifFalse: [^self].
 	horde3DLibrary clearOverlays.
@@ -336,8 +336,12 @@ currentCamera
 currentCamera: aHorde3DCameraNode 
 	"Set the camera to be used by the #render method."
 
-	self currentCamera ifNotNil: [:currentCamera | self addCamera: currentCamera].
-	cameras at: #currentCamera put: aHorde3DCameraNode!
+	self currentCamera 
+		ifNotNil: 
+			[:currentCamera | 
+			currentCamera == aHorde3DCameraNode ifTrue: [^currentCamera].
+			self addCamera: currentCamera].
+	^cameras at: #currentCamera put: aHorde3DCameraNode!
 
 hasOverlays: aBoolean 
 	"Private - Set the receiver's hasOverlays instance variable to aBoolean."
@@ -399,7 +403,7 @@ scene
 	^scene! !
 !Horde3DEngine categoriesFor: #addCamera:!accessing!private! !
 !Horde3DEngine categoriesFor: #cameras!accessing!public! !
-!Horde3DEngine categoriesFor: #clearOverlays!public! !
+!Horde3DEngine categoriesFor: #clearOverlays!private! !
 !Horde3DEngine categoriesFor: #currentCamera!accessing!public! !
 !Horde3DEngine categoriesFor: #currentCamera:!accessing!public! !
 !Horde3DEngine categoriesFor: #hasOverlays:!accessing!private! !
@@ -413,10 +417,16 @@ scene
 
 !Horde3DEngine class methodsFor!
 
+icon
+	"Answer the receiver's icon."
+
+	^Icon fromId: 'ClassHierarchyDiagram.ico'!
+
 new
 	"Answer a new initialized instance of the receiver."
 
 	^super new initialize! !
+!Horde3DEngine class categoriesFor: #icon!constants!public! !
 !Horde3DEngine class categoriesFor: #new!public! !
 
 Horde3DOptions guid: (GUID fromString: '{862F38E1-EB47-4F22-89FF-1E713A054CA4}')!
@@ -1248,10 +1258,16 @@ rootNode
 
 !Horde3DScene class methodsFor!
 
+icon
+	"Answer the receiver's icon."
+
+	^Icon fromId: 'Canvas.ico'!
+
 new
 	"Answer a new initialized instance of the receiver."
 
 	^super new initialize! !
+!Horde3DScene class categoriesFor: #icon!constants!public! !
 !Horde3DScene class categoriesFor: #new!instance creation!public! !
 
 Horde3DError guid: (GUID fromString: '{FA768A5D-CA7F-491F-8796-E243F67130D9}')!
@@ -1869,6 +1885,11 @@ fromFile: aFilename flags: anInteger
 				name: aFilename
 				flags: anInteger)!
 
+icon
+	"Answer the receiver's icon."
+
+	^Icon fromId: 'Resource.ico'!
+
 new
 	"Answer a new initialized instance of the receiver."
 
@@ -1880,7 +1901,8 @@ resourceType
 	^self subclassResponsibility! !
 !Horde3DResource class categoriesFor: #fromFile:!instance creation!public! !
 !Horde3DResource class categoriesFor: #fromFile:flags:!instance creation!public! !
-!Horde3DResource class categoriesFor: #new!public! !
+!Horde3DResource class categoriesFor: #icon!constants!public! !
+!Horde3DResource class categoriesFor: #new!instance creation!public! !
 !Horde3DResource class categoriesFor: #resourceType!private! !
 
 Horde3DCameraNode guid: (GUID fromString: '{EB255F49-917B-4265-B2A8-46388651685D}')!
@@ -2097,6 +2119,11 @@ topPlaneCoordinate: aFloat
 
 !Horde3DCameraNode class methodsFor!
 
+icon
+	"Answer the receiver's icon."
+
+	^Icon fromId: 'Snapshot.ico'!
+
 publishedEventsOfInstances
 	"Answer a Set of Symbols that describe the published events triggered by instances of the
 	receiver."
@@ -2104,6 +2131,7 @@ publishedEventsOfInstances
 	^(super publishedEventsOfInstances)
 		add: #cameraCreated:;
 		yourself! !
+!Horde3DCameraNode class categoriesFor: #icon!constants!public! !
 !Horde3DCameraNode class categoriesFor: #publishedEventsOfInstances!development!events!public! !
 
 Horde3DEmitterNode guid: (GUID fromString: '{E610B185-0A3E-4C49-814B-60D69A01AEAA}')!
@@ -2284,6 +2312,14 @@ shadowSplitLambda: aFloat
 !Horde3DLightNode categoriesFor: #shadowMapCount:!public! !
 !Horde3DLightNode categoriesFor: #shadowSplitLambda!public! !
 !Horde3DLightNode categoriesFor: #shadowSplitLambda:!public! !
+
+!Horde3DLightNode class methodsFor!
+
+icon
+	"Answer the receiver's icon."
+
+	^Icon fromId: 'IdeaSpaceShell.ico'! !
+!Horde3DLightNode class categoriesFor: #icon!constants!public! !
 
 Horde3DMeshNode guid: (GUID fromString: '{60C95703-5DAC-48E8-9A57-E84A2CBD841D}')!
 Horde3DMeshNode comment: ''!
