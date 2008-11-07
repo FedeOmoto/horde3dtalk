@@ -36,6 +36,7 @@ package classNames
 	add: #Horde3DTextureCubeResource;
 	add: #Horde3DUtilsLibrary;
 	add: #Horde3DView;
+	add: #Knight;
 	yourself.
 
 package methodNames
@@ -63,7 +64,7 @@ package!
 "Class Definitions"!
 
 Object subclass: #Horde3DEngine
-	instanceVariableNames: 'horde3DLibrary options scene resourceManager hasOverlays cameras'
+	instanceVariableNames: 'horde3DLibrary horde3DUtilsLibrary options scene resourceManager hasOverlays cameras mainLoopProcess pause'
 	classVariableNames: ''
 	poolDictionaries: ''
 	classInstanceVariableNames: ''!
@@ -208,7 +209,12 @@ Presenter subclass: #Horde3DPresenter
 	poolDictionaries: ''
 	classInstanceVariableNames: ''!
 Shell subclass: #Horde3DShell
-	instanceVariableNames: 'horde3DPresenter engine mainLoopProcess'
+	instanceVariableNames: 'horde3DPresenter engine'
+	classVariableNames: ''
+	poolDictionaries: ''
+	classInstanceVariableNames: ''!
+Horde3DShell subclass: #Knight
+	instanceVariableNames: 'hdrPipeline forwardPipeline font logo knight particleSystem cameraPosition cameraRotation animationTime blendWeight'
 	classVariableNames: ''
 	poolDictionaries: ''
 	classInstanceVariableNames: ''!
@@ -251,7 +257,7 @@ value
 
 Smalltalk at: #Horde3DConstants put: (PoolConstantsDictionary named: #Horde3DConstants)!
 Horde3DConstants at: 'Animation' put: 16r3!
-Horde3DConstants at: 'AnisotropyFactor' put: 16r3!
+Horde3DConstants at: 'AnisotropyFactor' put: 16r4!
 Horde3DConstants at: 'AttachmentString' put: 16r2!
 Horde3DConstants at: 'BottomPlane' put: 16r25D!
 Horde3DConstants at: 'Camera' put: 16r6!
@@ -259,11 +265,11 @@ Horde3DConstants at: 'Code' put: 16r5!
 Horde3DConstants at: 'Col_B' put: 16r1F9!
 Horde3DConstants at: 'Col_G' put: 16r1F8!
 Horde3DConstants at: 'Col_R' put: 16r1F7!
-Horde3DConstants at: 'DebugViewMode' put: 16rA!
+Horde3DConstants at: 'DebugViewMode' put: 16rB!
 Horde3DConstants at: 'Effect' put: 16r9!
 Horde3DConstants at: 'Emitter' put: 16r7!
 Horde3DConstants at: 'FarPlane' put: 16r260!
-Horde3DConstants at: 'FastAnimation' put: 16r6!
+Horde3DConstants at: 'FastAnimation' put: 16r7!
 Horde3DConstants at: 'FontMaterial' put: 16rB!
 Horde3DConstants at: 'FOV' put: 16r1F6!
 Horde3DConstants at: 'Geometry' put: 16r2!
@@ -271,10 +277,11 @@ Horde3DConstants at: 'Group' put: 16r1!
 Horde3DConstants at: 'Joint' put: 16r4!
 Horde3DConstants at: 'LeftPlane' put: 16r25B!
 Horde3DConstants at: 'Light' put: 16r5!
-Horde3DConstants at: 'LoadTextures' put: 16r5!
+Horde3DConstants at: 'LoadTextures' put: 16r6!
 Horde3DConstants at: 'Material' put: 16r4!
 Horde3DConstants at: 'MaterialRes' put: 16r1F4!
 Horde3DConstants at: 'MaxLogLevel' put: 16r1!
+Horde3DConstants at: 'MaxNumMessages' put: 16r2!
 Horde3DConstants at: 'Mesh' put: 16r3!
 Horde3DConstants at: 'Model' put: 16r2!
 Horde3DConstants at: 'Name' put: 16r1!
@@ -288,20 +295,20 @@ Horde3DConstants at: 'PipelineRes' put: 16r258!
 Horde3DConstants at: 'Radius' put: 16r1F5!
 Horde3DConstants at: 'RightPlane' put: 16r25C!
 Horde3DConstants at: 'RootNode' put: 16r1!
-Horde3DConstants at: 'SampleCount' put: 16r8!
+Horde3DConstants at: 'SampleCount' put: 16r9!
 Horde3DConstants at: 'SceneGraph' put: 16r1!
 Horde3DConstants at: 'Shader' put: 16r6!
 Horde3DConstants at: 'ShadowMapBias' put: 16r1FC!
 Horde3DConstants at: 'ShadowMapCount' put: 16r1FA!
-Horde3DConstants at: 'ShadowMapSize' put: 16r7!
+Horde3DConstants at: 'ShadowMapSize' put: 16r8!
 Horde3DConstants at: 'ShadowSplitLambda' put: 16r1FB!
-Horde3DConstants at: 'TexCompression' put: 16r4!
+Horde3DConstants at: 'TexCompression' put: 16r5!
 Horde3DConstants at: 'Texture2D' put: 16r7!
 Horde3DConstants at: 'TextureCube' put: 16r8!
 Horde3DConstants at: 'TopPlane' put: 16r25E!
-Horde3DConstants at: 'TrilinearFiltering' put: 16r2!
+Horde3DConstants at: 'TrilinearFiltering' put: 16r3!
 Horde3DConstants at: 'Undefined' put: 16r0!
-Horde3DConstants at: 'WireframeMode' put: 16r9!
+Horde3DConstants at: 'WireframeMode' put: 16rA!
 Horde3DConstants shrink!
 
 "Classes"!
@@ -352,12 +359,19 @@ initialize
 	"Private - Initialize the receiver."
 
 	horde3DLibrary := Horde3DLibrary default.
+	horde3DUtilsLibrary := Horde3DUtilsLibrary default.
 	options := Horde3DOptions new.
 	scene := Horde3DScene new.
 	resourceManager := Horde3DResourceManager new.
 	cameras := LookupTable new.
 	hasOverlays := false.
+	pause := false.
 	self registerEventHandlers!
+
+isPaused
+	"Answer whether the receiver is paused or not."
+
+	^pause!
 
 onCameraCreated: aHorde3DCameraNode 
 	"Private - Handler for the camera created event."
@@ -369,6 +383,11 @@ options
 	"Answer the receiver's options instance variable."
 
 	^options!
+
+pause: aBoolean 
+	"Set the receiver's pause instance variable to aBoolean."
+
+	pause := aBoolean!
 
 registerEventHandlers
 	"Private - Register with scene and resource manager events."
@@ -388,7 +407,7 @@ render
 
 	| currentCamera |
 	currentCamera := self currentCamera.
-	(currentCamera isNil or: [(horde3DLibrary render: currentCamera value) not]) 
+	(horde3DLibrary render: currentCamera value) not 
 		ifTrue: [Horde3DError signal: 'Error trying to render the scene'].
 	self clearOverlays!
 
@@ -397,10 +416,52 @@ resourceManager
 
 	^resourceManager!
 
+runMainLoopOn: anObject 
+	"Run the receiver's main loop on anObject (anObject>>mainLoop:).
+
+	TODO: refactor this method.
+	There should be an #fps method on the receiver, allowing to call
+	Horde3DFontMaterialResource>>showFrameStats: whithout its argument (in order to do this,
+	instances of Horde3DResourceManager should know the engine it belongs to. Also make
+	instances of Horde3DScene know the engine it belongs to).
+
+	NOTE: replace definitions of #scene, #scene:, #resourceManager and #resourceManager: by
+	#owner and #owner: for better clarity?"
+
+	| frames fps seconds |
+	frames := 0.
+	fps := 30.0.
+	seconds := Time microsecondClockValue / 1000000.0.
+	mainLoopProcess := 
+			[
+			[| currentSeconds |
+			frames := frames + 1.
+			frames >= 3 
+				ifTrue: 
+					[currentSeconds := Time microsecondClockValue / 1000000.0.
+					fps := frames / (currentSeconds - seconds).
+					frames := 0.
+					seconds := currentSeconds].
+			pause ifFalse: [anObject mainLoop: fps] ifTrue: [(Delay forMilliseconds: 1) wait].
+			self render.
+			self swapBuffers] 
+					repeat] 
+					fork!
+
 scene
 	"Answer the receiver's scene instance variable."
 
-	^scene! !
+	^scene!
+
+stopMainLoop
+	"Stop running the receiver's main loop."
+
+	mainLoopProcess ifNotNil: [mainLoopProcess terminate]!
+
+swapBuffers
+	"Private - Display the receiver's rendered image."
+
+	horde3DUtilsLibrary swapBuffers! !
 !Horde3DEngine categoriesFor: #addCamera:!accessing!private! !
 !Horde3DEngine categoriesFor: #cameras!accessing!public! !
 !Horde3DEngine categoriesFor: #clearOverlays!private! !
@@ -408,12 +469,17 @@ scene
 !Horde3DEngine categoriesFor: #currentCamera:!accessing!public! !
 !Horde3DEngine categoriesFor: #hasOverlays:!accessing!private! !
 !Horde3DEngine categoriesFor: #initialize!initializing!private! !
+!Horde3DEngine categoriesFor: #isPaused!public! !
 !Horde3DEngine categoriesFor: #onCameraCreated:!private! !
 !Horde3DEngine categoriesFor: #options!accessing!public! !
+!Horde3DEngine categoriesFor: #pause:!public! !
 !Horde3DEngine categoriesFor: #registerEventHandlers!event handlers!private! !
 !Horde3DEngine categoriesFor: #render!public! !
 !Horde3DEngine categoriesFor: #resourceManager!accessing!public! !
+!Horde3DEngine categoriesFor: #runMainLoopOn:!public! !
 !Horde3DEngine categoriesFor: #scene!accessing!public! !
+!Horde3DEngine categoriesFor: #stopMainLoop!public! !
+!Horde3DEngine categoriesFor: #swapBuffers!private! !
 
 !Horde3DEngine class methodsFor!
 
@@ -756,6 +822,11 @@ animationPath: aString
 
 	horde3DUtilsLibrary setResourcePath: Animation path: aString!
 
+animationResourceNamed: aString 
+	"Answer the receiver's animation resource named aString."
+
+	^self resourceNamed: aString ofType: Animation!
+
 codePath
 	"Get the search path for code resources."
 
@@ -765,6 +836,11 @@ codePath: aString
 	"Set the search path for code resources."
 
 	horde3DUtilsLibrary setResourcePath: Code path: aString!
+
+codeResourceNamed: aString 
+	"Answer the receiver's code resource named aString."
+
+	^self resourceNamed: aString ofType: Code!
 
 effectPath
 	"Get the search path for particle configuration resources."
@@ -776,74 +852,15 @@ effectPath: aString
 
 	horde3DUtilsLibrary setResourcePath: Effect path: aString!
 
-findAnimationResourceNamed: aString 
-	"Answer the receiver's animation resource named aString."
-
-	^self findResourceNamed: aString ofType: Animation!
-
-findCodeResourceNamed: aString 
-	"Answer the receiver's code resource named aString."
-
-	^self findResourceNamed: aString ofType: Code!
-
-findEffectResourceNamed: aString 
+effectResourceNamed: aString 
 	"Answer the receiver's effect resource named aString."
 
-	^self findResourceNamed: aString ofType: Effect!
+	^self resourceNamed: aString ofType: Effect!
 
-findFontMaterialResourceNamed: aString 
+fontMaterialResourceNamed: aString 
 	"Answer the receiver's font material resource named aString."
 
-	^self findResourceNamed: aString ofType: FontMaterial!
-
-findGeometryResourceNamed: aString 
-	"Answer the receiver's geometry resource named aString."
-
-	^self findResourceNamed: aString ofType: Geometry!
-
-findMaterialResourceNamed: aString 
-	"Answer the receiver's material resource named aString."
-
-	^self findResourceNamed: aString ofType: Material!
-
-findPipelineResourceNamed: aString 
-	"Answer the receiver's pipeline resource named aString."
-
-	^self findResourceNamed: aString ofType: Pipeline!
-
-findResourceNamed: aString ofType: aResourceType 
-	"Private - Answer the receiver's resource named aString of type aResourceType."
-
-	| resourceHandle resourceClass |
-	resourceHandle := horde3DLibrary findResource: aResourceType name: aString.
-	resourceClass := self resourceClassFor: aResourceType.
-	resourceHandle isZero 
-		ifTrue: 
-			[Horde3DNotification signal: 'Can''t find a ' , resourceClass printString , ' named ''' , aString 
-						, ''' in the resource manager'].
-	^(resourceClass new)
-		value: resourceHandle;
-		resourceManager: self!
-
-findSceneGraphResourceNamed: aString 
-	"Answer the receiver's scene graph resource named aString."
-
-	^self findResourceNamed: aString ofType: SceneGraph!
-
-findShaderResourceNamed: aString 
-	"Answer the receiver's shader resource named aString."
-
-	^self findResourceNamed: aString ofType: Shader!
-
-findTexture2DResourceNamed: aString 
-	"Answer the receiver's texture 2D resource named aString."
-
-	^self findResourceNamed: aString ofType: Texture2D!
-
-findTextureCubeResourceNamed: aString 
-	"Answer the receiver's texture cube resource named aString."
-
-	^self findResourceNamed: aString ofType: TextureCube!
+	^self resourceNamed: aString ofType: FontMaterial!
 
 geometryPath
 	"Get the search path for geometry resources."
@@ -854,6 +871,11 @@ geometryPath: aString
 	"Set the search path for geometry resources."
 
 	horde3DUtilsLibrary setResourcePath: Geometry path: aString!
+
+geometryResourceNamed: aString 
+	"Answer the receiver's geometry resource named aString."
+
+	^self resourceNamed: aString ofType: Geometry!
 
 initialize
 	"Private - Initialize the receiver."
@@ -878,6 +900,11 @@ materialPath: aString
 
 	horde3DUtilsLibrary setResourcePath: Material path: aString!
 
+materialResourceNamed: aString 
+	"Answer the receiver's material resource named aString."
+
+	^self resourceNamed: aString ofType: Material!
+
 pipelinePath
 	"Get the search path for pipeline resources."
 
@@ -887,6 +914,11 @@ pipelinePath: aString
 	"Set the search path for pipeline resources."
 
 	horde3DUtilsLibrary setResourcePath: Pipeline path: aString!
+
+pipelineResourceNamed: aString 
+	"Answer the receiver's pipeline resource named aString."
+
+	^self resourceNamed: aString ofType: Pipeline!
 
 resourceClassFor: aResourceType 
 	"Private - Answer the resource class for the resource type aResourceType."
@@ -902,6 +934,20 @@ resourceClassFor: aResourceType
 	aResourceType = Effect ifTrue: [^Horde3DEffectResource].
 	aResourceType = Pipeline ifTrue: [^Horde3DPipelineResource].
 	aResourceType = FontMaterial ifTrue: [^Horde3DFontMaterialResource]!
+
+resourceNamed: aString ofType: aResourceType 
+	"Private - Answer the receiver's resource named aString of type aResourceType."
+
+	| resourceHandle resourceClass |
+	resourceHandle := horde3DLibrary findResource: aResourceType name: aString.
+	resourceClass := self resourceClassFor: aResourceType.
+	resourceHandle isZero 
+		ifTrue: 
+			[Horde3DNotification signal: 'Can''t find a ' , resourceClass printString , ' named ''' , aString 
+						, ''' in the resource manager'].
+	^(resourceClass new)
+		value: resourceHandle;
+		resourceManager: self!
 
 resourceTypeFor: aHorde3DResource 
 	"Answer the type of the resource aHorde3DResource."
@@ -919,6 +965,11 @@ sceneGraphPath: aString
 
 	horde3DUtilsLibrary setResourcePath: SceneGraph path: aString!
 
+sceneGraphResourceNamed: aString 
+	"Answer the receiver's scene graph resource named aString."
+
+	^self resourceNamed: aString ofType: SceneGraph!
+
 shaderPath
 	"Get the search path for shader resources."
 
@@ -929,8 +980,10 @@ shaderPath: aString
 
 	horde3DUtilsLibrary setResourcePath: Shader path: aString!
 
-test
-	^Horde3DResource new!
+shaderResourceNamed: aString 
+	"Answer the receiver's shader resource named aString."
+
+	^self resourceNamed: aString ofType: Shader!
 
 texture2DPath
 	"Get the search path for two-dimensional texture map resources."
@@ -942,6 +995,11 @@ texture2DPath: aString
 
 	horde3DUtilsLibrary setResourcePath: Texture2D path: aString!
 
+texture2DResourceNamed: aString 
+	"Answer the receiver's texture 2D resource named aString."
+
+	^self resourceNamed: aString ofType: Texture2D!
+
 textureCubePath
 	"Get the search path for cube map texture resources."
 
@@ -950,7 +1008,12 @@ textureCubePath
 textureCubePath: aString 
 	"Set the search path for cube map texture resources."
 
-	horde3DUtilsLibrary setResourcePath: TextureCube path: aString! !
+	horde3DUtilsLibrary setResourcePath: TextureCube path: aString!
+
+textureCubeResourceNamed: aString 
+	"Answer the receiver's texture cube resource named aString."
+
+	^self resourceNamed: aString ofType: TextureCube! !
 !Horde3DResourceManager categoriesFor: #addAnimationFromFile:!public! !
 !Horde3DResourceManager categoriesFor: #addAnimationFromFile:flags:!public! !
 !Horde3DResourceManager categoriesFor: #addCodeFromFile:!public! !
@@ -976,41 +1039,40 @@ textureCubePath: aString
 !Horde3DResourceManager categoriesFor: #addTextureCubeFromFile:flags:!public! !
 !Horde3DResourceManager categoriesFor: #animationPath!public! !
 !Horde3DResourceManager categoriesFor: #animationPath:!public! !
+!Horde3DResourceManager categoriesFor: #animationResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #codePath!public! !
 !Horde3DResourceManager categoriesFor: #codePath:!public! !
+!Horde3DResourceManager categoriesFor: #codeResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #effectPath!public! !
 !Horde3DResourceManager categoriesFor: #effectPath:!public! !
-!Horde3DResourceManager categoriesFor: #findAnimationResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findCodeResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findEffectResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findFontMaterialResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findGeometryResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findMaterialResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findPipelineResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findResourceNamed:ofType:!private! !
-!Horde3DResourceManager categoriesFor: #findSceneGraphResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findShaderResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findTexture2DResourceNamed:!public! !
-!Horde3DResourceManager categoriesFor: #findTextureCubeResourceNamed:!public! !
+!Horde3DResourceManager categoriesFor: #effectResourceNamed:!public! !
+!Horde3DResourceManager categoriesFor: #fontMaterialResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #geometryPath!public! !
 !Horde3DResourceManager categoriesFor: #geometryPath:!public! !
+!Horde3DResourceManager categoriesFor: #geometryResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #initialize!initializing!private! !
 !Horde3DResourceManager categoriesFor: #loadResourcesFrom:!public! !
 !Horde3DResourceManager categoriesFor: #materialPath!public! !
 !Horde3DResourceManager categoriesFor: #materialPath:!public! !
+!Horde3DResourceManager categoriesFor: #materialResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #pipelinePath!public! !
 !Horde3DResourceManager categoriesFor: #pipelinePath:!public! !
+!Horde3DResourceManager categoriesFor: #pipelineResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #resourceClassFor:!private! !
+!Horde3DResourceManager categoriesFor: #resourceNamed:ofType:!private! !
 !Horde3DResourceManager categoriesFor: #resourceTypeFor:!public! !
 !Horde3DResourceManager categoriesFor: #sceneGraphPath!public! !
 !Horde3DResourceManager categoriesFor: #sceneGraphPath:!public! !
+!Horde3DResourceManager categoriesFor: #sceneGraphResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #shaderPath!public! !
 !Horde3DResourceManager categoriesFor: #shaderPath:!public! !
-!Horde3DResourceManager categoriesFor: #test!public! !
+!Horde3DResourceManager categoriesFor: #shaderResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #texture2DPath!public! !
 !Horde3DResourceManager categoriesFor: #texture2DPath:!public! !
+!Horde3DResourceManager categoriesFor: #texture2DResourceNamed:!public! !
 !Horde3DResourceManager categoriesFor: #textureCubePath!public! !
 !Horde3DResourceManager categoriesFor: #textureCubePath:!public! !
+!Horde3DResourceManager categoriesFor: #textureCubeResourceNamed:!public! !
 
 !Horde3DResourceManager class methodsFor!
 
@@ -1029,10 +1091,22 @@ addCamera: aCameraName at: aParentNode withPipeline: aHorde3DPipelineResource
 	"Add a camera node named aCameraName to the scene, attached to the parent node
 	aParentNode, with the pipeline resource aHorde3DPipelineResource used for rendering."
 
-	^self nodeFromHandle: (horde3DLibrary 
-				addCameraNode: aParentNode value
-				name: aCameraName
-				pipelineRes: aHorde3DPipelineResource value)!
+	| camera |
+	camera := self nodeFromHandle: (horde3DLibrary 
+						addCameraNode: aParentNode value
+						name: aCameraName
+						pipelineRes: aHorde3DPipelineResource value).
+	self trigger: #cameraCreated: with: camera.
+	^camera!
+
+addCamera: aCameraName withPipeline: aHorde3DPipelineResource 
+	"Add a camera node named aCameraName to the scene, attached to the RootNode, with the
+	pipeline resource aHorde3DPipelineResource used for rendering."
+
+	^self 
+		addCamera: aCameraName
+		at: RootNode
+		withPipeline: aHorde3DPipelineResource!
 
 addLight: aLightName at: aParentNode usingLightingShaderContext: aLightingContextString usingShadowShaderContext: aShadowContextString 
 	"Add a light node named aLightName to the scene, attached to the parent node aParentNode,
@@ -1059,145 +1133,209 @@ addLight: aLightName at: aParentNode withMaterial: aHorde3DMaterialResource usin
 				lightingContext: aLightingContextString
 				shadowContext: aShadowContextString)!
 
+addLight: aLightName usingLightingShaderContext: aLightingContextString usingShadowShaderContext: aShadowContextString 
+	"Add a light node named aLightName to the scene, attached to the RootNode, using the shader
+	context names for rendering shadow maps and doing light calculations aShadowContextString
+	and aLightingContextString respectively."
+
+	^self 
+		addLight: aLightName
+		at: RootNode
+		usingLightingShaderContext: aLightingContextString
+		usingShadowShaderContext: aShadowContextString!
+
+addLight: aLightName withMaterial: aHorde3DMaterialResource usingLightingShaderContext: aLightingContextString usingShadowShaderContext: aShadowContextString 
+	"Add a light node named aLightName to the scene, attached to the RootNode, with the material
+	resource aHorde3DMaterialResource, using the shader context names for rendering shadow
+	maps and doing light calculations aShadowContextString and aLightingContextString respectively."
+
+	^self 
+		addLight: aLightName
+		at: RootNode
+		withMaterial: aHorde3DMaterialResource
+		usingLightingShaderContext: aLightingContextString
+		usingShadowShaderContext: aShadowContextString!
+
+addNodesFrom: aHorde3DSceneGraphResource 
+	"Add new nodes from the scene graph resouce aHorde3DSceneGraphResource to the scene,
+	attached to the RootNode."
+
+	^self addNodesFrom: aHorde3DSceneGraphResource at: RootNode!
+
 addNodesFrom: aHorde3DSceneGraphResource at: aParentNode 
 	"Add new nodes from the scene graph resouce aHorde3DSceneGraphResource to the scene,
 	attached to the parent node aParentNode."
 
 	| nodeHandle |
-	nodeHandle := horde3DLibrary addNodes: aParentNode sceneGraphRes: aHorde3DSceneGraphResource value.
+	nodeHandle := horde3DLibrary addNodes: aParentNode value
+				sceneGraphRes: aHorde3DSceneGraphResource value.
 	^self nodeFromHandle: nodeHandle!
 
-allNodes
-	"Answer an array with all the scene nodes."
+cameraNodes
+	"Answer an array with all the camera scene nodes."
 
-	^self findNodesNamed: ''!
+	^self cameraNodesAt: RootNode!
 
-findCameraNodesNamed: aString 
+cameraNodesAt: aHorde3DNode 
+	"Answer an array of camera scene nodes starting the search at aHorde3DNode."
+
+	^self cameraNodesNamed: '' at: aHorde3DNode!
+
+cameraNodesNamed: aString 
 	"Answer an array of camera scene nodes with name aString."
 
-	^self findCameraNodesNamed: aString startingAt: RootNode!
+	^self cameraNodesNamed: aString at: RootNode!
 
-findCameraNodesNamed: aString startingAt: aHorde3DNode 
+cameraNodesNamed: aString at: aHorde3DNode 
 	"Answer an array of camera scene nodes with name aString, starting the search at aHorde3DNode."
 
 	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
+		nodesNamed: aString
+		at: aHorde3DNode
 		ofType: Camera!
 
-findEmitterNodesNamed: aString 
+emitterNodes
+	"Answer an array with all the emitter scene nodes."
+
+	^self emitterNodesAt: RootNode!
+
+emitterNodesAt: aHorde3DNode 
+	"Answer an array of emitter scene nodes starting the search at aHorde3DNode."
+
+	^self emitterNodesNamed: '' at: aHorde3DNode!
+
+emitterNodesNamed: aString 
 	"Answer an array of emitter scene nodes with name aString."
 
-	^self findEmitterNodesNamed: aString startingAt: RootNode!
+	^self emitterNodesNamed: aString at: RootNode!
 
-findEmitterNodesNamed: aString startingAt: aHorde3DNode 
+emitterNodesNamed: aString at: aHorde3DNode 
 	"Answer an array of emitter scene nodes with name aString, starting the search at aHorde3DNode."
 
 	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
+		nodesNamed: aString
+		at: aHorde3DNode
 		ofType: Emitter!
 
-findGroupNodesNamed: aString 
+groupNodes
+	"Answer an array with all the group scene nodes."
+
+	^self groupNodesAt: RootNode!
+
+groupNodesAt: aHorde3DNode 
+	"Answer an array of group scene nodes starting the search at aHorde3DNode."
+
+	^self groupNodesNamed: '' at: aHorde3DNode!
+
+groupNodesNamed: aString 
 	"Answer an array of group scene nodes with name aString."
 
-	^self findGroupNodesNamed: aString startingAt: RootNode!
+	^self groupNodesNamed: aString at: RootNode!
 
-findGroupNodesNamed: aString startingAt: aHorde3DNode 
+groupNodesNamed: aString at: aHorde3DNode 
 	"Answer an array of group scene nodes with name aString, starting the search at aHorde3DNode."
 
 	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
+		nodesNamed: aString
+		at: aHorde3DNode
 		ofType: Group!
-
-findJointNodesNamed: aString 
-	"Answer an array of joint scene nodes with name aString."
-
-	^self findJointNodesNamed: aString startingAt: RootNode!
-
-findJointNodesNamed: aString startingAt: aHorde3DNode 
-	"Answer an array of joint scene nodes with name aString, starting the search at aHorde3DNode."
-
-	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
-		ofType: Joint!
-
-findLightNodesNamed: aString 
-	"Answer an array of light scene nodes with name aString."
-
-	^self findLightNodesNamed: aString startingAt: RootNode!
-
-findLightNodesNamed: aString startingAt: aHorde3DNode 
-	"Answer an array of light scene nodes with name aString, starting the search at aHorde3DNode."
-
-	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
-		ofType: Light!
-
-findMeshNodesNamed: aString 
-	"Answer an array of mesh scene nodes with name aString."
-
-	^self findMeshNodesNamed: aString startingAt: RootNode!
-
-findMeshNodesNamed: aString startingAt: aHorde3DNode 
-	"Answer an array of mesh scene nodes with name aString, starting the search at aHorde3DNode."
-
-	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
-		ofType: Mesh!
-
-findModelNodesNamed: aString 
-	"Answer an array of model scene nodes with name aString."
-
-	^self findModelNodesNamed: aString startingAt: RootNode!
-
-findModelNodesNamed: aString startingAt: aHorde3DNode 
-	"Answer an array of model scene nodes with name aString, starting the search at aHorde3DNode."
-
-	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
-		ofType: Model!
-
-findNodesNamed: aString 
-	"Answer an array of scene nodes with name aString."
-
-	^self findNodesNamed: aString startingAt: RootNode!
-
-findNodesNamed: aString startingAt: aHorde3DNode 
-	"Answer an array of scene nodes with name aString, starting the search at aHorde3DNode."
-
-	^self 
-		findNodesNamed: aString
-		startingAt: aHorde3DNode
-		ofType: Undefined!
-
-findNodesNamed: aString startingAt: aHorde3DNode ofType: aNodeType 
-	"Private - Answer an array of scene nodes with name aString, of type aNodeType, starting the
-	search at aHorde3DNode."
-
-	| nodes nodeCount |
-	nodeCount := horde3DLibrary 
-				findNodes: aHorde3DNode value
-				name: aString
-				type: aNodeType.
-	nodes := Array new: nodeCount.
-	1 to: nodeCount
-		do: 
-			[:index | 
-			| nodeHandle |
-			nodeHandle := horde3DLibrary getNodeFindResult: index - 1.
-			nodes at: index put: (self nodeFromHandle: nodeHandle)].
-	^nodes!
 
 initialize
 	"Private - Initialize the receiver."
 
 	horde3DLibrary := Horde3DLibrary default!
+
+jointNodes
+	"Answer an array with all the joint scene nodes."
+
+	^self jointNodesAt: RootNode!
+
+jointNodesAt: aHorde3DNode 
+	"Answer an array of joint scene nodes starting the search at aHorde3DNode."
+
+	^self jointNodesNamed: '' at: aHorde3DNode!
+
+jointNodesNamed: aString 
+	"Answer an array of joint scene nodes with name aString."
+
+	^self jointNodesNamed: aString at: RootNode!
+
+jointNodesNamed: aString at: aHorde3DNode 
+	"Answer an array of joint scene nodes with name aString, starting the search at aHorde3DNode."
+
+	^self 
+		nodesNamed: aString
+		at: aHorde3DNode
+		ofType: Joint!
+
+lightNodes
+	"Answer an array with all the light scene nodes."
+
+	^self lightNodesAt: RootNode!
+
+lightNodesAt: aHorde3DNode 
+	"Answer an array of light scene nodes starting the search at aHorde3DNode."
+
+	^self lightNodesNamed: '' at: aHorde3DNode!
+
+lightNodesNamed: aString 
+	"Answer an array of light scene nodes with name aString."
+
+	^self lightNodesNamed: aString at: RootNode!
+
+lightNodesNamed: aString at: aHorde3DNode 
+	"Answer an array of light scene nodes with name aString, starting the search at aHorde3DNode."
+
+	^self 
+		nodesNamed: aString
+		at: aHorde3DNode
+		ofType: Light!
+
+meshNodes
+	"Answer an array with all the mesh scene nodes."
+
+	^self meshNodesAt: RootNode!
+
+meshNodesAt: aHorde3DNode 
+	"Answer an array of mesh scene nodes starting the search at aHorde3DNode."
+
+	^self meshNodesNamed: '' at: aHorde3DNode!
+
+meshNodesNamed: aString 
+	"Answer an array of mesh scene nodes with name aString."
+
+	^self meshNodesNamed: aString at: RootNode!
+
+meshNodesNamed: aString at: aHorde3DNode 
+	"Answer an array of mesh scene nodes with name aString, starting the search at aHorde3DNode."
+
+	^self 
+		nodesNamed: aString
+		at: aHorde3DNode
+		ofType: Mesh!
+
+modelNodes
+	"Answer an array with all the model scene nodes."
+
+	^self modelNodesAt: RootNode!
+
+modelNodesAt: aHorde3DNode 
+	"Answer an array of model scene nodes starting the search at aHorde3DNode."
+
+	^self modelNodesNamed: '' at: aHorde3DNode!
+
+modelNodesNamed: aString 
+	"Answer an array of model scene nodes with name aString."
+
+	^self modelNodesNamed: aString at: RootNode!
+
+modelNodesNamed: aString at: aHorde3DNode 
+	"Answer an array of model scene nodes with name aString, starting the search at aHorde3DNode."
+
+	^self 
+		nodesNamed: aString
+		at: aHorde3DNode
+		ofType: Model!
 
 nodeClassFor: aNodeType 
 	"Private - Answer the node class for the node type aNodeType."
@@ -1219,6 +1357,42 @@ nodeFromHandle: aNodeHandle
 		value: aNodeHandle;
 		scene: self!
 
+nodes
+	"Answer an array with all the scene nodes."
+
+	^self nodesNamed: ''!
+
+nodesNamed: aString 
+	"Answer an array of scene nodes with name aString."
+
+	^self nodesNamed: aString at: RootNode!
+
+nodesNamed: aString at: aHorde3DNode 
+	"Answer an array of scene nodes with name aString, starting the search at aHorde3DNode."
+
+	^self 
+		nodesNamed: aString
+		at: aHorde3DNode
+		ofType: Undefined!
+
+nodesNamed: aString at: aHorde3DNode ofType: aNodeType 
+	"Private - Answer an array of scene nodes with name aString, of type aNodeType, starting the
+	search at aHorde3DNode."
+
+	| nodes nodeCount |
+	nodeCount := horde3DLibrary 
+				findNodes: aHorde3DNode value
+				name: aString
+				type: aNodeType.
+	nodes := Array new: nodeCount.
+	1 to: nodeCount
+		do: 
+			[:index | 
+			| nodeHandle |
+			nodeHandle := horde3DLibrary getNodeFindResult: index - 1.
+			nodes at: index put: (self nodeFromHandle: nodeHandle)].
+	^nodes!
+
 nodeTypeFor: aHorde3DNode 
 	"Answer the type of the scene node aHorde3DNode."
 
@@ -1229,30 +1403,48 @@ rootNode
 
 	^RootNode! !
 !Horde3DScene categoriesFor: #addCamera:at:withPipeline:!public! !
+!Horde3DScene categoriesFor: #addCamera:withPipeline:!public! !
 !Horde3DScene categoriesFor: #addLight:at:usingLightingShaderContext:usingShadowShaderContext:!public! !
 !Horde3DScene categoriesFor: #addLight:at:withMaterial:usingLightingShaderContext:usingShadowShaderContext:!public! !
+!Horde3DScene categoriesFor: #addLight:usingLightingShaderContext:usingShadowShaderContext:!public! !
+!Horde3DScene categoriesFor: #addLight:withMaterial:usingLightingShaderContext:usingShadowShaderContext:!public! !
+!Horde3DScene categoriesFor: #addNodesFrom:!public! !
 !Horde3DScene categoriesFor: #addNodesFrom:at:!public! !
-!Horde3DScene categoriesFor: #allNodes!public! !
-!Horde3DScene categoriesFor: #findCameraNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findCameraNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findEmitterNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findEmitterNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findGroupNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findGroupNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findJointNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findJointNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findLightNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findLightNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findMeshNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findMeshNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findModelNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findModelNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findNodesNamed:!public! !
-!Horde3DScene categoriesFor: #findNodesNamed:startingAt:!public! !
-!Horde3DScene categoriesFor: #findNodesNamed:startingAt:ofType:!private! !
+!Horde3DScene categoriesFor: #cameraNodes!public! !
+!Horde3DScene categoriesFor: #cameraNodesAt:!public! !
+!Horde3DScene categoriesFor: #cameraNodesNamed:!public! !
+!Horde3DScene categoriesFor: #cameraNodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #emitterNodes!public! !
+!Horde3DScene categoriesFor: #emitterNodesAt:!public! !
+!Horde3DScene categoriesFor: #emitterNodesNamed:!public! !
+!Horde3DScene categoriesFor: #emitterNodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #groupNodes!public! !
+!Horde3DScene categoriesFor: #groupNodesAt:!public! !
+!Horde3DScene categoriesFor: #groupNodesNamed:!public! !
+!Horde3DScene categoriesFor: #groupNodesNamed:at:!public! !
 !Horde3DScene categoriesFor: #initialize!initializing!private! !
+!Horde3DScene categoriesFor: #jointNodes!public! !
+!Horde3DScene categoriesFor: #jointNodesAt:!public! !
+!Horde3DScene categoriesFor: #jointNodesNamed:!public! !
+!Horde3DScene categoriesFor: #jointNodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #lightNodes!public! !
+!Horde3DScene categoriesFor: #lightNodesAt:!public! !
+!Horde3DScene categoriesFor: #lightNodesNamed:!public! !
+!Horde3DScene categoriesFor: #lightNodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #meshNodes!public! !
+!Horde3DScene categoriesFor: #meshNodesAt:!public! !
+!Horde3DScene categoriesFor: #meshNodesNamed:!public! !
+!Horde3DScene categoriesFor: #meshNodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #modelNodes!public! !
+!Horde3DScene categoriesFor: #modelNodesAt:!public! !
+!Horde3DScene categoriesFor: #modelNodesNamed:!public! !
+!Horde3DScene categoriesFor: #modelNodesNamed:at:!public! !
 !Horde3DScene categoriesFor: #nodeClassFor:!private! !
 !Horde3DScene categoriesFor: #nodeFromHandle:!private! !
+!Horde3DScene categoriesFor: #nodes!public! !
+!Horde3DScene categoriesFor: #nodesNamed:!public! !
+!Horde3DScene categoriesFor: #nodesNamed:at:!public! !
+!Horde3DScene categoriesFor: #nodesNamed:at:ofType:!private! !
 !Horde3DScene categoriesFor: #nodeTypeFor:!public! !
 !Horde3DScene categoriesFor: #rootNode!public! !
 
@@ -1816,9 +2008,11 @@ scene: aHorde3DScene
 translation: aTranslationPoint3D rotation: aRotationPoint3D scale: aScalePoint3D 
 	"Set the translation, rotation (in Euler angles) and scale of the receiver.
 
-	NOTE: it would be cool if I can split this method in three: #translation:, #rotation: and #scale:
+	NOTE1: it would be cool if I can split this method in three: #translation:, #rotation: and #scale:
 	but with the current API I'm afraid this is not possible, please see my request at:
-	http://www.horde3d.org/forums/viewtopic.php?f=3&t=511"
+	http://www.horde3d.org/forums/viewtopic.php?f=3&t=511
+
+	NOTE2: see if we've to pass the translation and rotation values negated for intuitiveness."
 
 	^horde3DLibrary 
 		setNodeTransform: self value
@@ -1837,14 +2031,6 @@ translation: aTranslationPoint3D rotation: aRotationPoint3D scale: aScalePoint3D
 !Horde3DNode categoriesFor: #scene!accessing!public! !
 !Horde3DNode categoriesFor: #scene:!accessing!private! !
 !Horde3DNode categoriesFor: #translation:rotation:scale:!public! !
-
-!Horde3DNode class methodsFor!
-
-new
-	"Answer a new initialized instance of the receiver."
-
-	^super new initialize! !
-!Horde3DNode class categoriesFor: #new!instance creation!public! !
 
 Horde3DResource guid: (GUID fromString: '{3C6CC397-A851-490D-B79F-49326735A294}')!
 Horde3DResource comment: ''!
@@ -1890,11 +2076,6 @@ icon
 
 	^Icon fromId: 'Resource.ico'!
 
-new
-	"Answer a new initialized instance of the receiver."
-
-	^super new initialize!
-
 resourceType
 	"Private - Answer the appropriate resource type for the class."
 
@@ -1902,7 +2083,6 @@ resourceType
 !Horde3DResource class categoriesFor: #fromFile:!instance creation!public! !
 !Horde3DResource class categoriesFor: #fromFile:flags:!instance creation!public! !
 !Horde3DResource class categoriesFor: #icon!constants!public! !
-!Horde3DResource class categoriesFor: #new!instance creation!public! !
 !Horde3DResource class categoriesFor: #resourceType!private! !
 
 Horde3DCameraNode guid: (GUID fromString: '{EB255F49-917B-4265-B2A8-46388651685D}')!
@@ -1936,32 +2116,26 @@ farPlaneDistance: aFloat
 		param: FarPlane
 		value: aFloat!
 
-fov: aFOVFloat aspectRatio: anAspectRatioFloat 
-	"Set the receiver's field of view angle to aFOVFloat and the aspect ratio to anAspectRatioFloat."
+fov: aFOVFloat aspectRatio: anExtentPoint 
+	"Set the receiver's field of view angle to aFOVFloat and the aspect ratio to anExtentPoint."
 
 	^self 
 		fov: aFOVFloat
-		aspectRatio: anAspectRatioFloat
+		aspectRatio: anExtentPoint
 		nearPlaneDistance: self nearPlaneDistance
 		farPlaneDistance: self farPlaneDistance!
 
-fov: aFOVFloat aspectRatio: anAspectRatioFloat nearPlaneDistance: aNearPlaneDistanceFloat farPlaneDistance: aFarPlaneDistanceFloat 
-	"Set the receiver's field of view angle to aFOVFloat, the aspect ratio to anAspectRatioFloat,
+fov: aFOVFloat aspectRatio: anExtentPoint nearPlaneDistance: aNearPlaneDistanceFloat farPlaneDistance: aFarPlaneDistanceFloat 
+	"Set the receiver's field of view angle to aFOVFloat, the aspect ratio to anExtentPoint,
 	the distance of the near clipping plane to aNearPlaneDistanceFloat and the distance of the
 	far clipping plane to aFarPlaneDistanceFloat."
 
 	^horde3DLibrary 
 		setupCameraView: self value
 		fov: aFOVFloat
-		aspect: anAspectRatioFloat
+		aspect: (anExtentPoint x / anExtentPoint y) asFloat
 		nearDist: aNearPlaneDistanceFloat
 		farDist: aFarPlaneDistanceFloat!
-
-initialize
-	"Private - Initialize the receiver."
-
-	super initialize.
-	scene trigger: #cameraCreated: with: self!
 
 leftPlaneCoordinate
 	"Answer the receiver's coordinate of left plane relative to near plane center."
@@ -2096,7 +2270,6 @@ topPlaneCoordinate: aFloat
 !Horde3DCameraNode categoriesFor: #farPlaneDistance:!public! !
 !Horde3DCameraNode categoriesFor: #fov:aspectRatio:!public! !
 !Horde3DCameraNode categoriesFor: #fov:aspectRatio:nearPlaneDistance:farPlaneDistance:!public! !
-!Horde3DCameraNode categoriesFor: #initialize!initializing!private! !
 !Horde3DCameraNode categoriesFor: #leftPlaneCoordinate!public! !
 !Horde3DCameraNode categoriesFor: #leftPlaneCoordinate:!public! !
 !Horde3DCameraNode categoriesFor: #nearPlaneDistance!public! !
@@ -2597,10 +2770,19 @@ showFrameStats: currentFPS
 
 !Horde3DFontMaterialResource class methodsFor!
 
+fromFile: aFilename flags: anInteger 
+	"Answer a new instance of the receiver from the file named aFilename with creation flags anInteger."
+
+	^self new value: (Horde3DLibrary default 
+				addResource: super resourceType
+				name: aFilename
+				flags: anInteger)!
+
 resourceType
 	"Private - Answer the appropriate resource type for the class."
 
 	^FontMaterial! !
+!Horde3DFontMaterialResource class categoriesFor: #fromFile:flags:!public! !
 !Horde3DFontMaterialResource class categoriesFor: #resourceType!private! !
 
 Horde3DPresenter guid: (GUID fromString: '{853E2408-47E8-41B3-AC42-5A4F81FD1E7B}')!
@@ -2657,36 +2839,40 @@ createSchematicWiring
 		send: #onCameraViewChanged:
 		to: self!
 
-mainLoop
-	
-	[(Delay forMilliseconds: 1) wait.
-	true] whileTrue!
+initialize
+	"Private - Initialize the receiver."
+
+	super initialize.
+	engine := Horde3DEngine new!
+
+mainLoop: fps 
+	^self subclassResponsibility!
 
 onCameraViewChanged: anExtentPoint 
-	"Default handler for a camera view changed event."
+	"Default handler for a camera view changed event. Might be overriden in subclasses."
 
-	Transcript
-		show: 'Camera extent: ' , anExtentPoint printString;
-		cr!
-
-onKeyPressed: aKeyEvent 
-	aKeyEvent code = VK_ESCAPE ifTrue: [self view close].
-	^super onKeyPressed: aKeyEvent!
+	engine currentCamera fov: 45 aspectRatio: anExtentPoint!
 
 onViewClosed
-	mainLoopProcess ifNotNil: [mainLoopProcess terminate]!
+	engine stopMainLoop.
+	super onViewClosed!
 
 onViewOpened
 	super onViewOpened.
+	self setup.
 	self onCameraViewChanged: horde3DPresenter view extent.
-	mainLoopProcess := [self mainLoop] fork! !
+	engine runMainLoopOn: self!
+
+setup
+	^self subclassResponsibility! !
 !Horde3DShell categoriesFor: #createComponents!public! !
 !Horde3DShell categoriesFor: #createSchematicWiring!public! !
-!Horde3DShell categoriesFor: #mainLoop!public! !
+!Horde3DShell categoriesFor: #initialize!initializing!private! !
+!Horde3DShell categoriesFor: #mainLoop:!public! !
 !Horde3DShell categoriesFor: #onCameraViewChanged:!public! !
-!Horde3DShell categoriesFor: #onKeyPressed:!public! !
 !Horde3DShell categoriesFor: #onViewClosed!public! !
 !Horde3DShell categoriesFor: #onViewOpened!public! !
+!Horde3DShell categoriesFor: #setup!public! !
 
 !Horde3DShell class methodsFor!
 
@@ -2700,6 +2886,287 @@ resource_Default_view
 
 	^#(#'!!STL' 3 788558 10 ##(Smalltalk.STBViewProxy)  8 ##(Smalltalk.ShellView)  98 27 0 0 98 2 27131905 131073 416 0 524550 ##(Smalltalk.ColorRef)  8 4278190080 328198 ##(Smalltalk.Point)  1617 1255 679 0 0 0 416 1180166 ##(Smalltalk.ProportionalLayout)  234 240 98 0 32 234 256 98 2 410 8 ##(Smalltalk.Horde3DView)  98 13 0 416 98 2 8 1140850688 1 656 0 0 0 7 0 0 0 656 0 983302 ##(Smalltalk.MessageSequence)  202 208 98 1 721670 ##(Smalltalk.MessageSend)  8 #createAt:extent: 98 2 530 1 1 530 1601 1201 656 983302 ##(Smalltalk.WINDOWPLACEMENT)  8 #[44 0 0 0 0 0 0 0 1 0 0 0 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 0 0 0 0 0 0 0 0 32 3 0 0 88 2 0 0] 98 0 530 193 193 0 27 8 'horde' 0 0 0 0 0 1 0 0 0 0 1 0 0 738 202 208 98 2 802 832 98 2 530 2559 21 530 1617 1255 416 802 8 #updateMenuBar 608 416 898 8 #[44 0 0 0 0 0 0 0 0 0 0 0 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 4 0 0 10 0 0 0 39 8 0 0 125 2 0 0] 98 1 656 960 0 27 )! !
 !Horde3DShell class categoriesFor: #resource_Default_view!public!resources-views! !
+
+Knight guid: (GUID fromString: '{115E1C51-CB10-4F49-9124-2EA7A4A234EE}')!
+Knight comment: ''!
+!Knight categoriesForClass!MVP-Presenters! !
+!Knight methodsFor!
+
+addCamera
+	"Private - Add a camera node to the scene."
+
+	engine scene addCamera: 'Camera' withPipeline: hdrPipeline!
+
+addEnvironment
+	"Private - Add the environment nodes to the scene."
+
+	| environment |
+	environment := engine scene 
+				addNodesFrom: (engine resourceManager sceneGraphResourceNamed: self sphereResourceName).
+	environment 
+		translation: 0 @ -20 @ 0
+		rotation: 0 @ 0 @ 0
+		scale: 20 @ 20 @ 20!
+
+addKnight
+	"Private - Add the knight nodes to the scene."
+
+	knight := engine scene 
+				addNodesFrom: (engine resourceManager sceneGraphResourceNamed: self knightResourceName).
+	knight 
+		translation: 0 @ 0 @ 0
+		rotation: 0 @ 180 @ 0
+		scale: 0.1 @ 0.1 @ 0.1.
+	knight setupAnimationStage: 1
+		withResource: (engine resourceManager animationResourceNamed: self knightOrderResourceName).
+	knight setupAnimationStage: 2
+		withResource: (engine resourceManager animationResourceNamed: self knightAttackResourceName)!
+
+addLight
+	"Private - Add light source."
+
+	| light |
+	light := engine scene 
+				addLight: 'Light1'
+				usingLightingShaderContext: 'LIGHTING'
+				usingShadowShaderContext: 'SHADOWMAP'.
+	light 
+		translation: 0 @ 15 @ 10
+		rotation: -60 @ 0 @ 0
+		scale: 1 @ 1 @ 1.
+	light
+		radius: 30;
+		fov: 90;
+		shadowMapCount: 1;
+		shadowMapBias: 0.01;
+		color: (RGB 
+					red: 255
+					green: 204
+					blue: 178)!
+
+addParticleSystem
+	"Private - Attach a particle system to the knight's hand joint."
+
+	| hand |
+	hand := (engine scene jointNodesNamed: 'Bip01_R_Hand' at: knight) first.
+	particleSystem := engine scene 
+				addNodesFrom: (engine resourceManager sceneGraphResourceNamed: self particleSystemResourceName)
+				at: hand.
+	particleSystem 
+		translation: 0 @ 40 @ 0
+		rotation: 90 @ 0 @ 0
+		scale: 1 @ 1 @ 1!
+
+addResources
+	"Private - Add the resources we're going to use."
+
+	hdrPipeline := engine resourceManager addPipelineFromFile: 'hdr.pipeline.xml'.
+	forwardPipeline := engine resourceManager addPipelineFromFile: 'forward.pipeline.xml'.
+	font := engine resourceManager addFontMaterialFromFile: 'font.material.xml'.
+	logo := engine resourceManager addMaterialFromFile: 'logo.material.xml'.
+	engine resourceManager addSceneGraphFromFile: self sphereResourceName.
+	engine resourceManager addSceneGraphFromFile: self knightResourceName.
+	engine resourceManager addAnimationFromFile: self knightOrderResourceName.
+	engine resourceManager addAnimationFromFile: self knightAttackResourceName.
+	engine resourceManager addSceneGraphFromFile: self particleSystemResourceName!
+
+addSceneNodes
+	"Private - Add scene nodes."
+
+	self addCamera.
+	self addEnvironment.
+	self addKnight.
+	self addParticleSystem.
+	self addLight!
+
+animateKnight: fps 
+	"Private - Animate the knight."
+
+	animationTime := animationTime + (1 / fps).
+	knight 
+		animationTime: animationTime * 24
+		weight: blendWeight
+		forStage: 1.
+	knight 
+		animationTime: animationTime * 24
+		weight: 1 - blendWeight
+		forStage: 2!
+
+animateParticleSystem: fps 
+	"Private - Animate the particle system."
+
+	| emitterNodes |
+	emitterNodes := engine scene emitterNodesAt: particleSystem.
+	emitterNodes do: [:each | each advanceTime: 1 / fps]!
+
+initialize
+	"Private - Initialize the receiver."
+
+	super initialize.
+	cameraPosition := 5 @ 3 @ 19.
+	cameraRotation := 7 @ 15 @ 0.
+	animationTime := 0.
+	blendWeight := 1.0!
+
+knightAttackResourceName
+	"Private - Answer the knight attack animation resource name."
+
+	^'knight_attack.anim'!
+
+knightOrderResourceName
+	"Private - Answer the knight order animation resource name."
+
+	^'knight_order.anim'!
+
+knightResourceName
+	"Private - Answer the knight scene graph resource name."
+
+	^'knight.scene.xml'!
+
+loadResources
+	"Private - Load resources from disk."
+
+	self setResourcesPaths.
+	self addResources.
+	engine resourceManager loadResourcesFrom: self resourcesPath!
+
+mainLoop: fps 
+	self animateKnight: fps.
+	self animateParticleSystem: fps.
+	self updateCamera.
+	self showStats: fps.
+	self showLogo.
+	Horde3DUtilsLibrary default dumpMessages!
+
+onKeyPressed: aKeyEvent 
+	"Private - Handler for the various key events we're using."
+
+	| keyCode |
+	keyCode := aKeyEvent code.
+	keyCode == VK_SPACE ifTrue: [engine pause: engine isPaused not].
+	keyCode == VK_ESCAPE ifTrue: [self view close].
+	^super onKeyPressed: aKeyEvent!
+
+particleSystemResourceName
+	"Private - Answer the particle system scene graph resource name."
+
+	^'particleSys1.scene.xml'!
+
+postProcessingEffects
+	"Private - Customize post processing effects."
+
+	| materialResource |
+	materialResource := engine resourceManager materialResourceNamed: 'postHDR.material.xml'.
+	materialResource setUniform: 'hdrParams'
+		values: (FLOATArray 
+				with: 2.5
+				with: 0.5
+				with: 0.08
+				with: 0)!
+
+resourcesPath
+	"Private - Answer the resources dictectory pathname."
+
+	^'C:/Documents and Settings/Administrator/Desktop/Horde3D_SDK_1.0.0_Beta2/Horde3D/Binaries/Content'!
+
+setEngineOptions
+	"Private - Set the engine options we want to use."
+
+	engine options loadTextures: true.
+	engine options textureCompression: false.
+	engine options fastAnimation: false.
+	engine options anisotropyFactor: 8.
+	engine options shadowMapSize: 2048!
+
+setResourcesPaths
+	"Private - Set paths for resources."
+
+	engine resourceManager sceneGraphPath: 'models'.
+	engine resourceManager geometryPath: 'models'.
+	engine resourceManager animationPath: 'models'.
+	engine resourceManager materialPath: 'materials'.
+	engine resourceManager codePath: 'shaders'.
+	engine resourceManager shaderPath: 'shaders'.
+	engine resourceManager texture2DPath: 'textures'.
+	engine resourceManager textureCubePath: 'textures'.
+	engine resourceManager effectPath: 'effects'.
+	engine resourceManager pipelinePath: 'pipelines'!
+
+setup
+	self setEngineOptions.
+	self loadResources.
+	self addSceneNodes.
+	self postProcessingEffects!
+
+showLogo
+	"Private - Show the engine logo."
+
+	logo showOverlayAt: (Rectangle origin: 0.75 @ 0.8 corner: 1 @ 1) usingLayer: 8!
+
+showStats: fps 
+	"Private - Show frame and weight statistics."
+
+	| stream |
+	font showFrameStats: fps.
+	stream := String writeStream.
+	blendWeight printOn: stream decimalPlaces: 2.
+	font 
+		show: 'Weight: ' , stream contents
+		at: 0 @ 0.22
+		withScale: 0.03
+		usingLayer: 1!
+
+sphereResourceName
+	"Private - Answer the sphere scene graph resource name."
+
+	^'sphere.scene.xml'!
+
+updateCamera
+	"Private - Update the camera view."
+
+	engine currentCamera 
+		translation: cameraPosition
+		rotation: cameraRotation
+		scale: 1 @ 1 @ 1! !
+!Knight categoriesFor: #addCamera!private! !
+!Knight categoriesFor: #addEnvironment!private! !
+!Knight categoriesFor: #addKnight!private! !
+!Knight categoriesFor: #addLight!private! !
+!Knight categoriesFor: #addParticleSystem!private! !
+!Knight categoriesFor: #addResources!private! !
+!Knight categoriesFor: #addSceneNodes!private! !
+!Knight categoriesFor: #animateKnight:!private! !
+!Knight categoriesFor: #animateParticleSystem:!private! !
+!Knight categoriesFor: #initialize!private! !
+!Knight categoriesFor: #knightAttackResourceName!private! !
+!Knight categoriesFor: #knightOrderResourceName!private! !
+!Knight categoriesFor: #knightResourceName!private! !
+!Knight categoriesFor: #loadResources!private! !
+!Knight categoriesFor: #mainLoop:!public! !
+!Knight categoriesFor: #onKeyPressed:!private! !
+!Knight categoriesFor: #particleSystemResourceName!private! !
+!Knight categoriesFor: #postProcessingEffects!private! !
+!Knight categoriesFor: #resourcesPath!private! !
+!Knight categoriesFor: #setEngineOptions!private! !
+!Knight categoriesFor: #setResourcesPaths!private! !
+!Knight categoriesFor: #setup!public! !
+!Knight categoriesFor: #showLogo!private! !
+!Knight categoriesFor: #showStats:!private! !
+!Knight categoriesFor: #sphereResourceName!private! !
+!Knight categoriesFor: #updateCamera!private! !
+
+!Knight class methodsFor!
+
+resource_Default_view
+	"Answer the literal data from which the 'Default view' resource can be reconstituted.
+	DO NOT EDIT OR RECATEGORIZE THIS METHOD.
+
+	If you wish to modify this resource evaluate:
+	ViewComposer openOn: (ResourceIdentifier class: self selector: #resource_Default_view)
+	"
+
+	^#(#'!!STL' 3 788558 10 ##(Smalltalk.STBViewProxy)  8 ##(Smalltalk.ShellView)  98 27 0 0 98 2 27131905 131073 416 0 524550 ##(Smalltalk.ColorRef)  8 4278190080 328198 ##(Smalltalk.Point)  1617 1255 679 0 0 0 416 1180166 ##(Smalltalk.ProportionalLayout)  234 240 98 0 32 234 256 98 2 410 8 ##(Smalltalk.Horde3DView)  98 13 0 416 98 2 8 1140850688 1 656 0 0 0 7 0 0 0 656 0 983302 ##(Smalltalk.MessageSequence)  202 208 98 1 721670 ##(Smalltalk.MessageSend)  8 #createAt:extent: 98 2 530 1 1 530 1601 1201 656 983302 ##(Smalltalk.WINDOWPLACEMENT)  8 #[44 0 0 0 0 0 0 0 1 0 0 0 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 0 0 0 0 0 0 0 0 32 3 0 0 88 2 0 0] 98 0 530 193 193 0 27 8 'horde' 0 0 0 0 0 1 0 0 0 0 1 0 0 738 202 208 98 3 802 832 98 2 530 2559 21 530 1617 1255 416 802 8 #text: 98 1 8 'Knight - Horde3DTalk Sample' 416 802 8 #updateMenuBar 608 416 898 8 #[44 0 0 0 0 0 0 0 0 0 0 0 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 4 0 0 10 0 0 0 39 8 0 0 125 2 0 0] 98 1 656 960 0 27 )! !
+!Knight class categoriesFor: #resource_Default_view!public!resources-views! !
 
 Horde3DView guid: (GUID fromString: '{BEE60EB7-7071-4D61-9450-6DB29956238B}')!
 Horde3DView comment: ''!
@@ -2730,14 +3197,14 @@ onPositionChanged: aPositionEvent
 		ifTrue: 
 			[self resize.
 			self onCameraViewChanged].
-	^super onPositionChanged: aPositionEvent!
+	super onPositionChanged: aPositionEvent!
 
 onViewClosed
 	"Release Horde3D and destroy the receiver's rendering context."
 
 	Horde3DLibrary default release.
 	self destroyRC.
-	^super onViewClosed!
+	super onViewClosed!
 
 onViewOpened
 	"Create a rendering context for the receiver and initialize Horde3D."
@@ -2745,7 +3212,7 @@ onViewOpened
 	self createRC.
 	Horde3DLibrary default init ifFalse: [Horde3DError signal: 'Error trying to initialize Horde3D'].
 	self resize.
-	^super onViewOpened!
+	super onViewOpened!
 
 resize
 	"Resize the rendering viewport with the new reciver's dimensions."

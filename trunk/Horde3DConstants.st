@@ -56,12 +56,13 @@ Horde3DConstants at: 'OcclusionCulling' put: 610.
 
 "Engine option parameters constants"
 Horde3DConstants at: 'MaxLogLevel' put: 1.
-Horde3DConstants at: 'TrilinearFiltering' put: 2.
-Horde3DConstants at: 'AnisotropyFactor' put: 3.
-Horde3DConstants at: 'TexCompression' put: 4.
-Horde3DConstants at: 'LoadTextures' put: 5.
-Horde3DConstants at: 'FastAnimation' put: 6.
-Horde3DConstants at: 'ShadowMapSize' put: 7.
-Horde3DConstants at: 'SampleCount' put: 8.
-Horde3DConstants at: 'WireframeMode' put: 9.
-Horde3DConstants at: 'DebugViewMode' put: 10.
+Horde3DConstants at: 'MaxNumMessages' put: 2.
+Horde3DConstants at: 'TrilinearFiltering' put: 3.
+Horde3DConstants at: 'AnisotropyFactor' put: 4.
+Horde3DConstants at: 'TexCompression' put: 5.
+Horde3DConstants at: 'LoadTextures' put: 6.
+Horde3DConstants at: 'FastAnimation' put: 7.
+Horde3DConstants at: 'ShadowMapSize' put: 8.
+Horde3DConstants at: 'SampleCount' put: 9.
+Horde3DConstants at: 'WireframeMode' put: 10.
+Horde3DConstants at: 'DebugViewMode' put: 11.
