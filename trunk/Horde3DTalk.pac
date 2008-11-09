@@ -64,7 +64,7 @@ package!
 "Class Definitions"!
 
 Object subclass: #Horde3DEngine
-	instanceVariableNames: 'horde3DLibrary horde3DUtilsLibrary options scene resourceManager hasOverlays cameras mainLoopProcess pause'
+	instanceVariableNames: 'horde3DLibrary horde3DUtilsLibrary options scene resourceManager hasOverlays cameras mainLoopProcess pause fps'
 	classVariableNames: ''
 	poolDictionaries: ''
 	classInstanceVariableNames: ''!
@@ -350,6 +350,11 @@ currentCamera: aHorde3DCameraNode
 			self addCamera: currentCamera].
 	^cameras at: #currentCamera put: aHorde3DCameraNode!
 
+fps
+	"Answer the receiver's frames per seconds."
+
+	^fps!
+
 hasOverlays: aBoolean 
 	"Private - Set the receiver's hasOverlays instance variable to aBoolean."
 
@@ -417,7 +422,7 @@ resourceManager
 	^resourceManager!
 
 runMainLoopOn: anObject 
-	"Run the receiver's main loop on anObject (anObject>>mainLoop:).
+	"Run the receiver's main loop on anObject (anObject>>mainLoop).
 
 	TODO: refactor this method.
 	There should be an #fps method on the receiver, allowing to call
@@ -428,7 +433,7 @@ runMainLoopOn: anObject
 	NOTE: replace definitions of #scene, #scene:, #resourceManager and #resourceManager: by
 	#owner and #owner: for better clarity?"
 
-	| frames fps seconds |
+	| frames seconds |
 	frames := 0.
 	fps := 30.0.
 	seconds := Time microsecondClockValue / 1000000.0.
@@ -442,7 +447,7 @@ runMainLoopOn: anObject
 					fps := frames / (currentSeconds - seconds).
 					frames := 0.
 					seconds := currentSeconds].
-			pause ifFalse: [anObject mainLoop: fps] ifTrue: [(Delay forMilliseconds: 1) wait].
+			pause ifFalse: [anObject mainLoop] ifTrue: [(Delay forMilliseconds: 1) wait].
 			self render.
 			self swapBuffers] 
 					repeat] 
@@ -467,12 +472,13 @@ swapBuffers
 !Horde3DEngine categoriesFor: #clearOverlays!private! !
 !Horde3DEngine categoriesFor: #currentCamera!accessing!public! !
 !Horde3DEngine categoriesFor: #currentCamera:!accessing!public! !
+!Horde3DEngine categoriesFor: #fps!accessing!public! !
 !Horde3DEngine categoriesFor: #hasOverlays:!accessing!private! !
 !Horde3DEngine categoriesFor: #initialize!initializing!private! !
 !Horde3DEngine categoriesFor: #isPaused!public! !
 !Horde3DEngine categoriesFor: #onCameraCreated:!private! !
 !Horde3DEngine categoriesFor: #options!accessing!public! !
-!Horde3DEngine categoriesFor: #pause:!public! !
+!Horde3DEngine categoriesFor: #pause:!accessing!public! !
 !Horde3DEngine categoriesFor: #registerEventHandlers!event handlers!private! !
 !Horde3DEngine categoriesFor: #render!public! !
 !Horde3DEngine categoriesFor: #resourceManager!accessing!public! !
@@ -2845,7 +2851,9 @@ initialize
 	super initialize.
 	engine := Horde3DEngine new!
 
-mainLoop: fps 
+mainLoop
+	"This is the application main loop, it'll be called once per frame to update your application's logic."
+
 	^self subclassResponsibility!
 
 onCameraViewChanged: anExtentPoint 
@@ -2864,11 +2872,13 @@ onViewOpened
 	engine runMainLoopOn: self!
 
 setup
+	"This method will be called before #mainLoop to let you do any setup the application needs."
+
 	^self subclassResponsibility! !
 !Horde3DShell categoriesFor: #createComponents!public! !
 !Horde3DShell categoriesFor: #createSchematicWiring!public! !
 !Horde3DShell categoriesFor: #initialize!initializing!private! !
-!Horde3DShell categoriesFor: #mainLoop:!public! !
+!Horde3DShell categoriesFor: #mainLoop!public! !
 !Horde3DShell categoriesFor: #onCameraViewChanged:!public! !
 !Horde3DShell categoriesFor: #onViewClosed!public! !
 !Horde3DShell categoriesFor: #onViewOpened!public! !
@@ -2979,10 +2989,10 @@ addSceneNodes
 	self addParticleSystem.
 	self addLight!
 
-animateKnight: fps 
+animateKnight
 	"Private - Animate the knight."
 
-	animationTime := animationTime + (1 / fps).
+	animationTime := animationTime + (1 / engine fps).
 	knight 
 		animationTime: animationTime * 24
 		weight: blendWeight
@@ -2992,12 +3002,12 @@ animateKnight: fps
 		weight: 1 - blendWeight
 		forStage: 2!
 
-animateParticleSystem: fps 
+animateParticleSystem
 	"Private - Animate the particle system."
 
 	| emitterNodes |
 	emitterNodes := engine scene emitterNodesAt: particleSystem.
-	emitterNodes do: [:each | each advanceTime: 1 / fps]!
+	emitterNodes do: [:each | each advanceTime: 1 / engine fps]!
 
 initialize
 	"Private - Initialize the receiver."
@@ -3030,16 +3040,18 @@ loadResources
 	self addResources.
 	engine resourceManager loadResourcesFrom: self resourcesPath!
 
-mainLoop: fps 
-	self animateKnight: fps.
-	self animateParticleSystem: fps.
+mainLoop
+	"The receiver's main loop."
+
+	self animateKnight.
+	self animateParticleSystem.
 	self updateCamera.
-	self showStats: fps.
+	self showStats.
 	self showLogo.
 	Horde3DUtilsLibrary default dumpMessages!
 
 onKeyPressed: aKeyEvent 
-	"Private - Handler for the various key events we're using."
+	"Private - Handler for the various key events we're interested in."
 
 	| keyCode |
 	keyCode := aKeyEvent code.
@@ -3093,6 +3105,8 @@ setResourcesPaths
 	engine resourceManager pipelinePath: 'pipelines'!
 
 setup
+	"Setup the receiver before #mainLoop is called."
+
 	self setEngineOptions.
 	self loadResources.
 	self addSceneNodes.
@@ -3103,11 +3117,11 @@ showLogo
 
 	logo showOverlayAt: (Rectangle origin: 0.75 @ 0.8 corner: 1 @ 1) usingLayer: 8!
 
-showStats: fps 
+showStats
 	"Private - Show frame and weight statistics."
 
 	| stream |
-	font showFrameStats: fps.
+	font showFrameStats: engine fps.
 	stream := String writeStream.
 	blendWeight printOn: stream decimalPlaces: 2.
 	font 
@@ -3135,14 +3149,14 @@ updateCamera
 !Knight categoriesFor: #addParticleSystem!private! !
 !Knight categoriesFor: #addResources!private! !
 !Knight categoriesFor: #addSceneNodes!private! !
-!Knight categoriesFor: #animateKnight:!private! !
-!Knight categoriesFor: #animateParticleSystem:!private! !
+!Knight categoriesFor: #animateKnight!private! !
+!Knight categoriesFor: #animateParticleSystem!private! !
 !Knight categoriesFor: #initialize!private! !
 !Knight categoriesFor: #knightAttackResourceName!private! !
 !Knight categoriesFor: #knightOrderResourceName!private! !
 !Knight categoriesFor: #knightResourceName!private! !
 !Knight categoriesFor: #loadResources!private! !
-!Knight categoriesFor: #mainLoop:!public! !
+!Knight categoriesFor: #mainLoop!public! !
 !Knight categoriesFor: #onKeyPressed:!private! !
 !Knight categoriesFor: #particleSystemResourceName!private! !
 !Knight categoriesFor: #postProcessingEffects!private! !
@@ -3151,7 +3165,7 @@ updateCamera
 !Knight categoriesFor: #setResourcesPaths!private! !
 !Knight categoriesFor: #setup!public! !
 !Knight categoriesFor: #showLogo!private! !
-!Knight categoriesFor: #showStats:!private! !
+!Knight categoriesFor: #showStats!private! !
 !Knight categoriesFor: #sphereResourceName!private! !
 !Knight categoriesFor: #updateCamera!private! !
 
